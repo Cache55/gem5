@@ -524,7 +524,9 @@ def operands {{
     'RawPC': PCStateReg('pc', srtPC),
     'PC': PCStateReg('instPC', srtPC),
     'NPC': PCStateReg('instNPC', srtPC),
-    'pNPC': PCStateReg('instNPC', srtEPC),
+    # Written after NextThumb (srtMode) so RFE aligns the return address for
+    # the state it returns to: a Thumb target keeps bit 1.
+    'pNPC': PCStateReg('instNPC', srtPC),
     'IWNPC': PCStateReg('instIWNPC', srtPC),
     'Thumb': PCStateReg('thumb', srtPC),
     'NextThumb': PCStateReg('nextThumb', srtMode),
