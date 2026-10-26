@@ -700,6 +700,12 @@ ISA::readMiscReg(RegIndex idx)
       case MISCREG_ICC_AP0R0 ... MISCREG_ICH_LRC15:
       case MISCREG_ICC_PMR_EL1 ... MISCREG_ICC_IGRPEN1_EL3:
       case MISCREG_ICH_AP0R0_EL2 ... MISCREG_ICH_LR15_EL2:
+        // An MRC reads its register before it checks that the access is
+        // allowed, so this also runs for accesses that are UNDEFINED
+        // because there is no GICv3 (canReadCoprocReg), e.g. on an out of
+        // order cpu's mispredicted path: read 0 instead of panicking.
+        if (!gicv3CpuInterface && !getGICv3CPUInterface(tc))
+            return 0;
         return getGICv3CPUInterface().readMiscReg(idx);
 
       default:

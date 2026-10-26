@@ -42,9 +42,11 @@
 #include "arch/arm/insts/misc64.hh"
 #include "arch/arm/isa.hh"
 #include "arch/arm/regs/misc_info.hh"
+#include "arch/arm/system.hh"
 #include "base/bitfield.hh"
 #include "base/logging.hh"
 #include "cpu/thread_context.hh"
+#include "dev/arm/gic_v3.hh"
 #include "dev/arm/gic_v3_cpu_interface.hh"
 #include "params/ArmISA.hh"
 #include "sim/full_system.hh"
@@ -704,6 +706,20 @@ decodeMrsMsrBankedIntRegIndex(uint8_t sysM, bool r)
     return (validReg && isIntReg) ? regIdx : int_reg::Zero;
 }
 
+/*
+ * The AArch32 GICv3 system register interface (ICC_*, ICH_*) exists only
+ * with a GICv3 cpu interface (ID_PFR1.GIC != 0); without one the encodings
+ * are UNDEFINED. Accessing them would otherwise reach
+ * ISA::getGICv3CPUInterface(), which panics, e.g. when an out of order cpu
+ * executes such an MRC on a mispredicted path.
+ */
+static bool
+AArch32isUndefinedGICv3(ThreadContext *tc)
+{
+    auto *sys = dynamic_cast<ArmSystem *>(tc->getSystemPtr());
+    return !(FullSystem && sys && dynamic_cast<Gicv3 *>(sys->getGIC()));
+}
+
 std::tuple<bool, bool>
 canReadCoprocReg(MiscRegIndex reg, SCR scr, CPSR cpsr, ThreadContext *tc)
 {
@@ -741,6 +757,10 @@ canReadCoprocReg(MiscRegIndex reg, SCR scr, CPSR cpsr, ThreadContext *tc)
       case MISCREG_CNTFRQ ... MISCREG_CNTVOFF:
         if (!undefined)
             undefined = AArch32isUndefinedGenericTimer(reg, tc);
+        break;
+      case MISCREG_ICC_AP0R0 ... MISCREG_ICH_LRC15:
+        if (!undefined)
+            undefined = AArch32isUndefinedGICv3(tc);
         break;
       default:
         break;
@@ -788,6 +808,10 @@ canWriteCoprocReg(MiscRegIndex reg, SCR scr, CPSR cpsr, ThreadContext *tc)
       case MISCREG_CNTFRQ ... MISCREG_CNTVOFF:
         if (!undefined)
             undefined = AArch32isUndefinedGenericTimer(reg, tc);
+        break;
+      case MISCREG_ICC_AP0R0 ... MISCREG_ICH_LRC15:
+        if (!undefined)
+            undefined = AArch32isUndefinedGICv3(tc);
         break;
       default:
         break;
